@@ -4,3 +4,939 @@ scp -i key.pem key.pem ubuntu@<Public Ip of sever 1>:/home/ubuntu/
 
 On server 1:-
 scp -i key.pem testfile.txt ubuntu@<Public Ip of server 2>:/home/ubuntu/
+
+
+//Email Controller
+public class EmailController {
+	public String recipientEmail { get; set; }
+ public String subject { get; set; }
+ public String body { get; set; }
+ public String message { get; set; }
+ public static Boolean isValidEmail(String email) {
+     if (String.isBlank(email)) {
+ return false;
+ }
+
+ Integer atPos = email.indexOf('@');
+ Integer dotPos = email.lastIndexOf('.');
+
+ // Check if '@' and '.' exist
+ if (atPos == -1 || dotPos == -1) {
+ return false;
+ }
+
+ // Check order: '@' must come before '.'
+ if (atPos > dotPos) {
+ return false;
+ }
+
+ // Check something before '@'
+ if (atPos == 0) {
+ return false;
+ }
+
+ // Check something between '@' and '.'
+ if (dotPos - atPos <= 1) {
+ return false;
+ }
+
+ // Check something after '.'
+ if (dotPos == email.length() - 1) {
+ return false;
+ }
+
+ return true;
+ }
+  
+    public void sendEmail() {
+ try {
+ // Validate email
+ if(!isValidEmail(recipientEmail)) {
+ message = 'Invalid email address!';
+ return;
+ }
+ // Create email
+ Messaging.SingleEmailMessage mail = new
+    Messaging.SingleEmailMessage();
+ mail.setToAddresses(new String[] { recipientEmail });
+ mail.setSubject(subject);
+ mail.setPlainTextBody(body);
+ // Send email
+ Messaging.sendEmail(new Messaging.SingleEmailMessage[] { mail });
+ message = 'Email sent successfully!';
+ }
+ catch(Exception e) {
+ message = 'Error: ' + e.getMessage();
+ }
+ }
+}
+
+// email_ui
+
+<apex:page controller="EmailController">
+ <apex:form >
+ <apex:pageMessages />
+ <apex:pageBlock title="Send Email">
+ <apex:pageBlockSection columns="1">
+ <apex:inputText value="{!recipientEmail}" label="Recipient Email"/>
+ <apex:inputText value="{!subject}" label="Subject"/>
+ <apex:inputTextarea value="{!body}" label="Message Body"/>
+ </apex:pageBlockSection>
+ <apex:commandButton value="Send Email" action="{!sendEmail}"
+rerender="msg"/>
+ </apex:pageBlock>
+ <apex:outputPanel id="msg">
+ <apex:outputText value="{!message}" style="color:green;"/>
+ </apex:outputPanel>
+ </apex:form>
+   </apex:page>
+
+------------
+
+// EmployeeManager.apex
+public class EmployeeManager {
+
+    // Create Employee
+    public static void createEmployee(
+        String empId,
+        String name,
+        String email,
+        Date dob,
+        String dept,
+        Decimal salary
+    ) {
+
+        Employee__c emp = new Employee__c(
+
+            Employee_ID__c = empId,
+            Name = name,
+            Email__c = email,
+            DOB__c = dob,
+            Department__c = dept,
+            Salary__c = salary
+        );
+
+        insert emp;
+
+        System.debug('Employee Created');
+    }
+
+    // View Employees
+    public static void viewEmployees() {
+
+        List<Employee__c> emps = [
+
+            SELECT Employee_ID__c,
+                   Name,
+                   Email__c,
+                   DOB__c,
+                   Department__c,
+                   Salary__c
+            FROM Employee__c
+        ];
+
+        for(Employee__c e : emps) {
+
+            System.debug(
+                'ID: ' + e.Employee_ID__c +
+                ' | Name: ' + e.Name +
+                ' | Email: ' + e.Email__c +
+                ' | DOB: ' + e.DOB__c +
+                ' | Department: ' + e.Department__c +
+                ' | Salary: ' + e.Salary__c
+            );
+        }
+    }
+
+    // Update Salary
+    public static void updateSalary(String empId, Decimal newSalary) {
+
+        Employee__c emp = [
+
+            SELECT Id, Salary__c
+            FROM Employee__c
+            WHERE Employee_ID__c = :empId
+            LIMIT 1
+        ];
+
+        emp.Salary__c = newSalary;
+
+        update emp;
+
+        System.debug('Salary Updated');
+    }
+
+    // Delete Employee
+    public static void deleteEmployee(String empId) {
+
+        Employee__c emp = [
+
+            SELECT Id
+            FROM Employee__c
+            WHERE Employee_ID__c = :empId
+            LIMIT 1
+        ];
+
+        delete emp;
+
+        System.debug('Employee Deleted');
+    }
+}
+
+
+//EmployeeController
+public class EmployeeController {
+
+    public Employee__c emp {get; set;}
+
+    public List<Employee__c> allEmployees {get; set;}
+
+    public String targetId {get; set;}
+
+    public Decimal newSalary {get; set;}
+
+    public EmployeeController() {
+
+        emp = new Employee__c();
+
+        loadRecords();
+    }
+
+    // Load all employees
+    public void loadRecords() {
+
+        allEmployees = [
+
+            SELECT Employee_ID__c,
+                   Name,
+                   Email__c,
+                   DOB__c,
+                   Department__c,
+                   Salary__c
+            FROM Employee__c
+            ORDER BY Name
+        ];
+    }
+
+    // Insert employee
+    public void doSave() {
+
+        insert emp;
+
+        emp = new Employee__c();
+
+        loadRecords();
+    }
+
+    // Update salary using Employee ID
+    public void doUpdate() {
+
+        Employee__c e = [
+
+            SELECT Id, Salary__c
+            FROM Employee__c
+            WHERE Employee_ID__c = :targetId
+            LIMIT 1
+        ];
+
+        e.Salary__c = newSalary;
+
+        update e;
+
+        loadRecords();
+    }
+
+    // Delete employee using Employee ID
+    public void doDelete() {
+
+        Employee__c e = [
+
+            SELECT Id
+            FROM Employee__c
+            WHERE Employee_ID__c = :targetId
+            LIMIT 1
+        ];
+
+        delete e;
+
+        loadRecords();
+    }
+}
+
+//EmployeeManagerPage
+
+<apex:page controller="EmployeeController">
+
+    <apex:form id="mainForm">
+
+        <apex:sectionHeader title="EMS" subtitle="Employee Management System"/>
+
+        <!-- Add Employee -->
+        <apex:pageBlock title="Add Employee">
+
+            <apex:pageBlockSection columns="1">
+
+                <apex:inputField value="{!emp.Employee_ID__c}"/>
+
+                <apex:inputField value="{!emp.Name}"/>
+
+                <apex:inputField value="{!emp.Email__c}"/>
+
+                <apex:inputField value="{!emp.DOB__c}"/>
+
+                <apex:inputField value="{!emp.Department__c}"/>
+
+                <apex:inputField value="{!emp.Salary__c}"/>
+
+            </apex:pageBlockSection>
+
+            <apex:pageBlockButtons>
+                <apex:commandButton value="Add Employee"
+                                    action="{!doSave}"
+                                    reRender="mainForm"/>
+            </apex:pageBlockButtons>
+
+        </apex:pageBlock>
+
+        <!-- Employee List -->
+        <apex:pageBlock title="Employee Records">
+
+            <apex:pageBlockTable value="{!allEmployees}" var="e">
+
+                <apex:column value="{!e.Employee_ID__c}" headerValue="Employee ID"/>
+
+                <apex:column value="{!e.Name}" headerValue="Name"/>
+
+                <apex:column value="{!e.Email__c}" headerValue="Email"/>
+
+                <apex:column value="{!e.DOB__c}" headerValue="DOB"/>
+
+                <apex:column value="{!e.Department__c}" headerValue="Department"/>
+
+                <apex:column value="{!e.Salary__c}" headerValue="Salary"/>
+
+            </apex:pageBlockTable>
+
+        </apex:pageBlock>
+
+        <!-- Update/Delete -->
+        <apex:pageBlock title="Update/Delete Employee">
+
+            <apex:pageBlockSection columns="2">
+
+                <apex:inputText value="{!targetId}" label="Employee ID"/>
+
+                <apex:inputText value="{!newSalary}" label="New Salary"/>
+
+            </apex:pageBlockSection>
+
+            <apex:pageBlockButtons>
+
+                <apex:commandButton value="Update Salary"
+                                    action="{!doUpdate}"
+                                    reRender="mainForm"/>
+
+                <apex:commandButton value="Delete Employee"
+                                    action="{!doDelete}"
+                                    reRender="mainForm"/>
+
+            </apex:pageBlockButtons>
+
+        </apex:pageBlock>
+
+    </apex:form>
+
+</apex:page>
+
+------
+// ProductInventoryController
+
+public class ProductInventoryController {
+
+    // Product Form Object
+    public Product_Inventory__c productObj {get; set;}
+
+    // Product List
+    public List<Product_Inventory__c> productList {get; set;}
+
+    // Search Text
+    public String searchText {get; set;}
+
+    // Selected Product ID
+    public Id selectedProductId {get; set;}
+
+    // Edit Mode
+    public Boolean isEditMode {get; set;}
+
+    // Constructor
+    public ProductInventoryController() {
+
+        productObj = new Product_Inventory__c();
+
+        productList = new List<Product_Inventory__c>();
+
+        searchText = '';
+
+        isEditMode = false;
+
+        loadProducts();
+    }
+
+    // Load Products
+    public void loadProducts() {
+
+        productList = [
+            SELECT Id,
+                   Name,
+                   Serial_No__c,
+                   Manufacture_Date__c,
+                   Expiry_Date__c
+            FROM Product_Inventory__c
+        ];
+    }
+
+    // Search Product
+    public void searchProduct() {
+
+        productList = [
+            SELECT Id,
+                   Name,
+                   Serial_No__c,
+                   Manufacture_Date__c,
+                   Expiry_Date__c
+            FROM Product_Inventory__c
+            WHERE Name LIKE :('%' + searchText + '%')
+        ];
+    }
+
+    // Add Product
+    public void addProduct() {
+
+        insert productObj;
+
+        ApexPages.addMessage(
+            new ApexPages.Message(
+                ApexPages.Severity.CONFIRM,
+                'Product Added Successfully'
+            )
+        );
+
+        clearForm();
+
+        loadProducts();
+    }
+
+    // Edit Product
+    public void editProduct() {
+
+        selectedProductId =
+            ApexPages.currentPage()
+            .getParameters()
+            .get('pid');
+
+        productObj = [
+            SELECT Id,
+                   Name,
+                   Serial_No__c,
+                   Manufacture_Date__c,
+                   Expiry_Date__c
+            FROM Product_Inventory__c
+            WHERE Id = :selectedProductId
+            LIMIT 1
+        ];
+
+        isEditMode = true;
+    }
+
+    // Update Product
+    public void updateProduct() {
+
+        update productObj;
+
+        ApexPages.addMessage(
+            new ApexPages.Message(
+                ApexPages.Severity.CONFIRM,
+                'Product Updated Successfully'
+            )
+        );
+
+        clearForm();
+
+        loadProducts();
+    }
+
+    // Delete Product
+    public void deleteProduct() {
+
+        Id productId =
+            ApexPages.currentPage()
+            .getParameters()
+            .get('pid');
+
+        Product_Inventory__c prod = [
+            SELECT Id
+            FROM Product_Inventory__c
+            WHERE Id = :productId
+            LIMIT 1
+        ];
+
+        delete prod;
+
+        ApexPages.addMessage(
+            new ApexPages.Message(
+                ApexPages.Severity.CONFIRM,
+                'Product Deleted Successfully'
+            )
+        );
+
+        loadProducts();
+    }
+
+    // Clear Form
+    public void clearForm() {
+
+        productObj = new Product_Inventory__c();
+
+        selectedProductId = null;
+
+        isEditMode = false;
+    }
+}
+
+//ProductInventory.vfp
+
+<apex:page controller="ProductInventoryController">
+
+    <apex:form>
+
+        <!-- Messages -->
+        <apex:pageMessages id="msg" />
+
+        <!-- Search Section -->
+        <apex:pageBlock title="Search Product">
+
+            <apex:pageBlockSection columns="2">
+
+                <apex:inputText
+                    value="{!searchText}"
+                    label="Product Name" />
+
+            </apex:pageBlockSection>
+
+            <apex:commandButton
+                value="Search"
+                action="{!searchProduct}"
+                rerender="tableSection,msg" />
+
+            <apex:commandButton
+                value="Show All"
+                action="{!loadProducts}"
+                rerender="tableSection,msg" />
+
+        </apex:pageBlock>
+
+        <!-- Product Form -->
+        <apex:pageBlock
+            title="Product Inventory Management System"
+            id="mainBlock">
+
+            <apex:pageBlockSection columns="2">
+
+                <apex:inputField
+                    value="{!productObj.Name}" />
+
+                <apex:inputField
+                    value="{!productObj.Serial_No__c}" />
+
+                <apex:inputField
+                    value="{!productObj.Manufacture_Date__c}" />
+
+                <apex:inputField
+                    value="{!productObj.Expiry_Date__c}" />
+
+            </apex:pageBlockSection>
+
+            <!-- Add Button -->
+            <apex:commandButton
+                value="Add Product"
+                action="{!addProduct}"
+                rendered="{!NOT(isEditMode)}"
+                rerender="mainBlock,tableSection,msg" />
+
+            <!-- Update Button -->
+            <apex:commandButton
+                value="Update Product"
+                action="{!updateProduct}"
+                rendered="{!isEditMode}"
+                rerender="mainBlock,tableSection,msg" />
+
+        </apex:pageBlock>
+
+        <!-- Product Table -->
+        <apex:pageBlock
+            title="Product Records"
+            id="tableSection">
+
+            <apex:pageBlockTable
+                value="{!productList}"
+                var="p">
+
+                <apex:column
+                    value="{!p.Name}"
+                    headerValue="Product Name" />
+
+                <apex:column
+                    value="{!p.Serial_No__c}"
+                    headerValue="Serial No" />
+
+                <apex:column
+                    value="{!p.Manufacture_Date__c}"
+                    headerValue="Manufacture Date" />
+
+                <apex:column
+                    value="{!p.Expiry_Date__c}"
+                    headerValue="Expiry Date" />
+
+                <!-- Edit Button -->
+                <apex:column headerValue="Edit">
+
+                    <apex:commandLink
+                        value="Edit"
+                        action="{!editProduct}"
+                        rerender="mainBlock,msg">
+
+                        <apex:param
+                            name="pid"
+                            value="{!p.Id}" />
+
+                    </apex:commandLink>
+
+                </apex:column>
+
+                <!-- Delete Button -->
+                <apex:column headerValue="Delete">
+
+                    <apex:commandLink
+                        value="Delete"
+                        action="{!deleteProduct}"
+                        rerender="tableSection,msg">
+
+                        <apex:param
+                            name="pid"
+                            value="{!p.Id}" />
+
+                    </apex:commandLink>
+
+                </apex:column>
+
+            </apex:pageBlockTable>
+
+        </apex:pageBlock>
+
+    </apex:form>
+
+</apex:page>
+
+--------
+
+// apex
+public class BankAccountSystem {
+
+    // Display Menu
+    public static void showMenu() {
+
+        System.debug('===== Bank Account System =====');
+        System.debug('1. Add Customer');
+        System.debug('2. View Customers');
+        System.debug('3. Update Customer');
+        System.debug('4. Delete Customer');
+        System.debug('5. Exit');
+    }
+
+    // Add Customer
+    public static void addCustomer(
+        Integer customerId,
+        String customerName,
+        String email,
+        Date dob,
+        String department
+    ) {
+
+        Customer__c cust = new Customer__c();
+
+        cust.CustomerId__c = customerId;
+        cust.Name = customerName;
+        cust.Email__c = email;
+        cust.DOB__c = dob;
+        cust.Department__c = department;
+
+        insert cust;
+
+        System.debug('Customer Added Successfully');
+    }
+
+    // View Customers
+    public static void viewCustomers() {
+
+        List<Customer__c> custList = [
+            SELECT Id, Name, CustomerId__c,
+                   Email__c, DOB__c, Department__c
+            FROM Customer__c
+        ];
+
+        if(custList.isEmpty()) {
+
+            System.debug('No Customers Found');
+            return;
+        }
+
+        System.debug('Total Customers: ' + custList.size());
+
+        for(Customer__c cust : custList) {
+
+            System.debug(
+                'CustomerID: ' + cust.CustomerId__c +
+                ' | Name: ' + cust.Name +
+                ' | Email: ' + cust.Email__c +
+                ' | DOB: ' + cust.DOB__c +
+                ' | Department: ' + cust.Department__c
+            );
+        }
+    }
+
+    // Update Customer
+    public static void updateCustomer(
+        Integer customerId,
+        String newEmail,
+        String newDepartment
+    ) {
+
+        Customer__c cust = [
+            SELECT Id, Email__c, Department__c
+            FROM Customer__c
+            WHERE CustomerId__c = :customerId
+            LIMIT 1
+        ];
+
+        cust.Email__c = newEmail;
+        cust.Department__c = newDepartment;
+
+        update cust;
+
+        System.debug('Customer Updated Successfully');
+    }
+
+    // Delete Customer
+    public static void deleteCustomer(Integer customerId) {
+
+        Customer__c cust = [
+            SELECT Id
+            FROM Customer__c
+            WHERE CustomerId__c = :customerId
+            LIMIT 1
+        ];
+
+        delete cust;
+
+        System.debug('Customer Deleted Successfully');
+    }
+}
+
+// Controller
+public class BankAccountController {
+
+    // Object for insert
+    public Customer__c cust {get; set;}
+
+    // List for display
+    public List<Customer__c> allCustomers {get; set;}
+
+    // Variables for update/delete
+    public Integer targetCustomerId {get; set;}
+
+    public String newEmail {get; set;}
+
+    public String newDepartment {get; set;}
+
+    // Constructor
+    public BankAccountController() {
+
+        cust = new Customer__c();
+
+        loadCustomers();
+    }
+
+    // Load all records
+    public void loadCustomers() {
+
+        allCustomers = [
+
+            SELECT Id,
+                   CustomerId__c,
+                   Name,
+                   Email__c,
+                   DOB__c,
+                   Department__c
+
+            FROM Customer__c
+
+            ORDER BY Name
+        ];
+    }
+
+    // Insert customer
+    public void doSave() {
+
+        insert cust;
+
+        cust = new Customer__c();
+
+        loadCustomers();
+    }
+
+    // Update customer
+    public void doUpdate() {
+
+        Customer__c c = [
+
+            SELECT Id,
+                   Email__c,
+                   Department__c
+
+            FROM Customer__c
+
+            WHERE CustomerId__c = :targetCustomerId
+
+            LIMIT 1
+        ];
+
+        c.Email__c = newEmail;
+
+        c.Department__c = newDepartment;
+
+        update c;
+
+        loadCustomers();
+    }
+
+    // Delete customer
+    public void doDelete() {
+
+        Customer__c c = [
+
+            SELECT Id
+
+            FROM Customer__c
+
+            WHERE CustomerId__c = :targetCustomerId
+
+            LIMIT 1
+        ];
+
+        delete c;
+
+        loadCustomers();
+    }
+}
+
+// bank.vfp
+<apex:page controller="BankAccountController">
+
+    <apex:form id="mainForm">
+
+        <apex:sectionHeader title="Bank Account System"
+                            subtitle="Customer Management"/>
+
+        <!-- Add Customer -->
+        <apex:pageBlock title="Add Customer">
+
+            <apex:pageBlockSection columns="1">
+
+                <apex:inputField value="{!cust.CustomerId__c}"
+                                 label="Customer ID"/>
+
+                <apex:inputField value="{!cust.Name}"
+                                 label="Customer Name"/>
+
+                <apex:inputField value="{!cust.Email__c}"
+                                 label="Email"/>
+
+                <apex:inputField value="{!cust.DOB__c}"
+                                 label="DOB"/>
+
+                <apex:inputField value="{!cust.Department__c}"
+                                 label="Department"/>
+
+            </apex:pageBlockSection>
+
+            <apex:pageBlockButtons>
+
+                <apex:commandButton value="Add Customer"
+                                    action="{!doSave}"
+                                    reRender="mainForm"/>
+
+            </apex:pageBlockButtons>
+
+        </apex:pageBlock>
+
+        <!-- Customer List -->
+        <apex:pageBlock title="Customer Records">
+
+            <apex:pageBlockTable value="{!allCustomers}" var="c">
+
+                <apex:column value="{!c.CustomerId__c}"
+                             headerValue="Customer ID"/>
+
+                <apex:column value="{!c.Name}"
+                             headerValue="Name"/>
+
+                <apex:column value="{!c.Email__c}"
+                             headerValue="Email"/>
+
+                <apex:column value="{!c.DOB__c}"
+                             headerValue="DOB"/>
+
+                <apex:column value="{!c.Department__c}"
+                             headerValue="Department"/>
+
+            </apex:pageBlockTable>
+
+        </apex:pageBlock>
+
+        <!-- Update/Delete -->
+        <apex:pageBlock title="Update/Delete Customer">
+
+            <apex:pageBlockSection columns="2">
+
+                <apex:inputText value="{!targetCustomerId}"
+                                label="Customer ID"/>
+
+                <apex:inputText value="{!newEmail}"
+                                label="New Email"/>
+
+                <apex:inputText value="{!newDepartment}"
+                                label="New Department"/>
+
+            </apex:pageBlockSection>
+
+            <apex:pageBlockButtons>
+
+                <apex:commandButton value="Update Customer"
+                                    action="{!doUpdate}"
+                                    reRender="mainForm"/>
+
+                <apex:commandButton value="Delete Customer"
+                                    action="{!doDelete}"
+                                    reRender="mainForm"/>
+
+            </apex:pageBlockButtons>
+
+        </apex:pageBlock>
+
+    </apex:form>
+
+</apex:page>
+
+
+
+
