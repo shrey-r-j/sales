@@ -1,0 +1,6 @@
+ON local Machine :-
+chmod chmod 400 "college.pem"
+scp -i key.pem key.pem ubuntu@<Public Ip of sever 1>:/home/ubuntu/
+
+On server 1:-
+scp -i key.pem testfile.txt ubuntu@<Public Ip of server 2>:/home/ubuntu/
